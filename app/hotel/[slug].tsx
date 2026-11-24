@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { api, ApiError, type HotelDetail, type Room, type Stay } from '../../src/lib/api';
@@ -11,16 +11,25 @@ import { colors, font, radius } from '../../src/theme';
 export default function HotelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { slug } = useLocalSearchParams<{ slug: string }>();
-  const params = useLocalSearchParams<{ check_in?: string; check_out?: string; adults?: string }>();
+  const params = useLocalSearchParams<{
+    slug: string;
+    check_in?: string;
+    check_out?: string;
+    adults?: string;
+    children?: string;
+  }>();
+  const { slug } = params;
 
   const [hotel, setHotel] = useState<HotelDetail | null>(null);
   const [stay, setStay] = useState<Stay>({
     check_in: params.check_in ?? addDays(today(), 1),
     check_out: params.check_out ?? addDays(today(), 2),
-    nights: 1,
+    nights: nightsBetween(
+      params.check_in ?? addDays(today(), 1),
+      params.check_out ?? addDays(today(), 2),
+    ),
     adults: Number(params.adults ?? 2),
-    children: 0,
+    children: Number(params.children ?? 0),
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +44,7 @@ export default function HotelScreen() {
         check_in: stay.check_in,
         check_out: stay.check_out,
         adults: stay.adults,
+        children: stay.children,
       });
       setHotel(response.data);
       setStay((current) => ({ ...current, ...response.meta.stay }));
@@ -43,12 +53,12 @@ export default function HotelScreen() {
     } finally {
       setLoading(false);
     }
-  }, [slug, stay.check_in, stay.check_out, stay.adults]);
+  }, [slug, stay.check_in, stay.check_out, stay.adults, stay.children]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, stay.check_in, stay.check_out, stay.adults]);
+  }, [slug, stay.check_in, stay.check_out, stay.adults, stay.children]);
 
   const shiftStay = (direction: -1 | 1) => {
     setStay((current) => {

@@ -6,12 +6,11 @@
  * `EXPO_PUBLIC_API_URL` is the full API base, e.g. https://eilams.com/api/v1 —
  * the same value documented in docs/CUSTOMER-APP-API.md on the server repo.
  */
-import * as SecureStore from 'expo-secure-store';
 import { tokenStorage } from './token-storage';
 
-export const API_URL = (
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://eilams.com/api/v1'
-).replace(/\/+$/, '');
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+export const API_URL = (configuredApiUrl || 'https://eilams.com/api/v1').replace(/\/+$/, '');
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export class ApiError extends Error {
   constructor(
@@ -40,7 +39,6 @@ type Options = {
 
 export async function request<T>(path: string, options: Options = {}): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-
   const headers: Record<string, string> = { Accept: 'application/json' };
 
   if (!options.public) {
@@ -50,39 +48,51 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
 
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
 
-  let response: Response;
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
 
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal,
     });
-  } catch {
-    // A phone on a train has no signal; that is not a server error.
+
+    if (options.raw) return response as unknown as T;
+
+    const text = await response.text();
+    const payload = text ? safeParse(text) : null;
+
+    if (!response.ok) {
+      const message =
+        (payload && typeof payload.message === 'string' && payload.message) ||
+        (response.status === 401
+          ? 'Please sign in again.'
+          : response.status === 404
+            ? 'We could not find that.'
+            : 'Something went wrong. Please try again.');
+
+      throw new ApiError(message, response.status, payload?.errors ?? {});
+    }
+
+    if (response.status === 204) return undefined as unknown as T;
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (timedOut) {
+      throw new ApiError('The server took too long to respond. Check your connection and try again.', 408);
+    }
+    // Mobile connections can disappear at any time; keep the error actionable.
     throw new ApiError('No connection. Check your network and try again.', 0);
+  } finally {
+    clearTimeout(timeout);
   }
-
-  if (options.raw) return response as unknown as T;
-
-  const text = await response.text();
-  const payload = text ? safeParse(text) : null;
-
-  if (!response.ok) {
-    const message =
-      (payload && typeof payload.message === 'string' && payload.message) ||
-      (response.status === 401
-        ? 'Please sign in again.'
-        : response.status === 404
-          ? 'We could not find that.'
-          : 'Something went wrong. Please try again.');
-
-    throw new ApiError(message, response.status, payload?.errors ?? {});
-  }
-
-  if (response.status === 204) return undefined as unknown as T;
-
-  return payload as T;
 }
 
 function safeParse(text: string): any {

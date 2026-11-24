@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { api, ApiError, type Bootstrap, type HotelCardData, type Stay } from '../../src/lib/api';
@@ -28,18 +29,20 @@ export default function Explore() {
 
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [featured, setFeatured] = useState<HotelCardData[]>([]);
-  const [stay, setStay] = useState<Stay>({
+  const [stay] = useState<Stay>(() => ({
     check_in: addDays(today(), 1),
     check_out: addDays(today(), 2),
     nights: 1,
     adults: 2,
     children: 0,
-  });
-  const [city, setCity] = useState<{ slug: string; name: string } | null>(null);
+  }));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
 
     try {
@@ -57,6 +60,7 @@ export default function Explore() {
       setError(e instanceof ApiError ? e.message : 'Could not load the app.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -65,17 +69,16 @@ export default function Explore() {
   }, [load]);
 
   const search = useCallback(() => {
-    const params = new URLSearchParams({
-      check_in: stay.check_in,
-      check_out: stay.check_out,
-      adults: String(stay.adults),
-      children: String(stay.children),
+    router.push({
+      pathname: '/search',
+      params: {
+        check_in: stay.check_in,
+        check_out: stay.check_out,
+        adults: String(stay.adults),
+        children: String(stay.children),
+      },
     });
-
-    if (city) params.set('city', city.slug);
-
-    router.push(`/search?${params.toString()}`);
-  }, [router, stay, city]);
+  }, [router, stay]);
 
   const cities = useMemo(() => bootstrap?.cities.slice(0, 8) ?? [], [bootstrap]);
 
@@ -84,44 +87,52 @@ export default function Explore() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.brand} />
+        }
       >
         <View style={styles.brandRow}>
           <View>
             <Text style={styles.hello}>Stay somewhere good</Text>
             <Text style={styles.sub}>Hotels, guesthouses and resorts across Pakistan</Text>
           </View>
-          <Link href="/profile" asChild>
+          <Pressable
+            onPress={() => router.push('/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            hitSlop={8}
+          >
             <Ionicons name="person-circle-outline" size={28} color={colors.brand} />
-          </Link>
+          </Pressable>
         </View>
 
-        <SearchCard
-          stay={stay}
-          cityLabel={city?.name}
-          onStayChange={setStay}
-          onSubmit={search}
-        />
+        <SearchCard stay={stay} onSubmit={search} />
 
         <View style={styles.quickRow}>
-          {['Tonight', 'This weekend', 'Next week'].map((label) => {
-            const offset = label === 'Tonight' ? 0 : label === 'This weekend' ? 2 : 7;
-
-            return (
-              <Link
-                key={label}
-                href={`/search?check_in=${addDays(today(), offset)}&check_out=${addDays(
-                  today(),
-                  offset + 1,
-                )}&adults=2`}
-                asChild
-              >
-                <View style={styles.quickChip}>
-                  <Text style={styles.quickChipText}>{label}</Text>
-                </View>
-              </Link>
-            );
-          })}
+          {[
+            { label: 'Tonight', offset: 0 },
+            { label: 'This weekend', offset: 2 },
+            { label: 'Next week', offset: 7 },
+          ].map(({ label, offset }) => (
+            <Pressable
+              key={label}
+              onPress={() =>
+                router.push({
+                  pathname: '/search',
+                  params: {
+                    check_in: addDays(today(), offset),
+                    check_out: addDays(today(), offset + 1),
+                    adults: '2',
+                    children: '0',
+                  },
+                })
+              }
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.quickChip, pressed && styles.quickChipPressed]}
+            >
+              <Text style={styles.quickChipText}>{label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {error ? (
@@ -131,9 +142,9 @@ export default function Explore() {
             <SectionTitle
               title="Destinations"
               action={
-                <Link href="/search" asChild>
+                <Pressable onPress={() => router.push('/search')} accessibilityRole="link" hitSlop={8}>
                   <Text style={styles.seeAll}>See all</Text>
-                </Link>
+                </Pressable>
               }
             />
 
@@ -147,24 +158,38 @@ export default function Explore() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.cityRail}
                 renderItem={({ item }) => (
-                  <Link href={`/search?city=${item.slug}&check_in=${stay.check_in}&check_out=${stay.check_out}`} asChild>
-                    <View style={styles.cityCard}>
-                      {item.cover ? (
-                        <Image source={{ uri: item.cover }} style={styles.cityImage} />
-                      ) : (
-                        <View style={[styles.cityImage, styles.cityPlaceholder]}>
-                          <Text style={styles.cityPlaceholderText}>{item.city.slice(0, 1)}</Text>
-                        </View>
-                      )}
-                      <View style={styles.cityOverlay} />
-                      <View style={styles.cityText}>
-                        <Text style={styles.cityName}>{item.city}</Text>
-                        <Text style={styles.cityCount}>
-                          {item.hotels} {item.hotels === 1 ? 'property' : 'properties'}
-                        </Text>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: '/search',
+                        params: {
+                          city: item.slug,
+                          check_in: stay.check_in,
+                          check_out: stay.check_out,
+                          adults: String(stay.adults),
+                          children: String(stay.children),
+                        },
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Find stays in ${item.city}`}
+                    style={({ pressed }) => [styles.cityCard, pressed && styles.cityCardPressed]}
+                  >
+                    {item.cover ? (
+                      <Image source={{ uri: item.cover }} style={styles.cityImage} />
+                    ) : (
+                      <View style={[styles.cityImage, styles.cityPlaceholder]}>
+                        <Text style={styles.cityPlaceholderText}>{item.city.slice(0, 1)}</Text>
                       </View>
+                    )}
+                    <View style={styles.cityOverlay} />
+                    <View style={styles.cityText}>
+                      <Text style={styles.cityName}>{item.city}</Text>
+                      <Text style={styles.cityCount}>
+                        {item.hotels} {item.hotels === 1 ? 'property' : 'properties'}
+                      </Text>
                     </View>
-                  </Link>
+                  </Pressable>
                 )}
               />
             )}
@@ -172,9 +197,9 @@ export default function Explore() {
             <SectionTitle
               title="Featured stays"
               action={
-                <Link href="/search" asChild>
+                <Pressable onPress={() => router.push('/search')} accessibilityRole="link" hitSlop={8}>
                   <Text style={styles.seeAll}>Browse all</Text>
-                </Link>
+                </Pressable>
               }
             />
 
@@ -186,7 +211,22 @@ export default function Explore() {
               </Text>
             ) : (
               featured.map((hotel) => (
-                <HotelCard key={hotel.id} hotel={hotel} onPress={() => router.push(`/hotel/${hotel.slug}`)} />
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/hotel/[slug]',
+                      params: {
+                        slug: hotel.slug,
+                        check_in: stay.check_in,
+                        check_out: stay.check_out,
+                        adults: String(stay.adults),
+                        children: String(stay.children),
+                      },
+                    })
+                  }
+                />
               ))
             )}
           </>
@@ -214,8 +254,10 @@ const styles = StyleSheet.create({
     borderColor: colors.lineStrong,
   },
   quickChipText: { ...font.medium, fontSize: 12, color: colors.body },
+  quickChipPressed: { backgroundColor: colors.line },
   seeAll: { ...font.semibold, fontSize: 13, color: colors.brand },
   cityRail: { gap: 10, paddingRight: 20 },
+  cityCardPressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
   cityCard: {
     width: 150,
     height: 108,

@@ -1,43 +1,52 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { colors, font, radius } from '../theme';
 import { date, plural } from '../lib/format';
 import type { Stay } from '../lib/api';
 
+type Focus = 'destination' | 'dates' | 'guests';
+
 type Props = {
   stay: Stay;
-  onStayChange: (next: Stay) => void;
   onSubmit: () => void;
   cityLabel?: string;
+  citySlug?: string;
 };
 
-/**
- * The search box that opens the app. Tapping a segment opens a sheet rather
- * than typing, because on a phone "pick from the dates we actually have" beats
- * a calendar with 400 disabled days.
- */
-export function SearchCard({ stay, onStayChange, onSubmit, cityLabel }: Props) {
-  const navigation = useNavigation<any>();
+/** A compact, phone-friendly shortcut into the full search filters. */
+export function SearchCard({ stay, onSubmit, cityLabel, citySlug }: Props) {
+  const router = useRouter();
 
-  const rows = [
+  const openSearch = (focus: Focus) => {
+    router.push({
+      pathname: '/search',
+      params: {
+        focus,
+        check_in: stay.check_in,
+        check_out: stay.check_out,
+        adults: String(stay.adults),
+        children: String(stay.children),
+        ...(citySlug ? { city: citySlug } : {}),
+      },
+    });
+  };
+
+  const rows: { key: Focus; label: string; value: string }[] = [
     {
       key: 'destination',
       label: 'Destination',
-      value: cityLabel && cityLabel !== '' ? cityLabel : 'Anywhere in Pakistan',
-      onPress: () => navigation.navigate('search', { focus: 'city' }),
+      value: cityLabel || 'Anywhere in Pakistan',
     },
     {
       key: 'dates',
       label: 'Dates',
       value: `${date(stay.check_in)} → ${date(stay.check_out)}`,
-      onPress: () => navigation.navigate('search', { focus: 'dates' }),
     },
     {
       key: 'guests',
       label: 'Guests',
       value: `${plural(stay.adults, 'adult')}, ${plural(stay.children, 'child', 'children')}`,
-      onPress: () => navigation.navigate('search', { focus: 'guests' }),
     },
   ];
 
@@ -47,9 +56,9 @@ export function SearchCard({ stay, onStayChange, onSubmit, cityLabel }: Props) {
         <React.Fragment key={row.key}>
           {index > 0 ? <View style={styles.rule} /> : null}
           <Pressable
-            onPress={row.onPress}
+            onPress={() => openSearch(row.key)}
             accessibilityRole="button"
-            accessibilityLabel={`${row.label}: ${row.value}`}
+            accessibilityLabel={`${row.label}: ${row.value}. Change ${row.label.toLowerCase()}`}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <Text style={styles.label}>{row.label}</Text>

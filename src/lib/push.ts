@@ -17,7 +17,7 @@ export function usePushRegistration() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.id <= 0) return;
 
     let cancelled = false;
 

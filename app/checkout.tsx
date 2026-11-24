@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,8 +107,7 @@ export default function CheckoutScreen() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.hotel, params.room]);
+  }, [params.hotel, params.room, params.check_in, params.check_out, adults, children]);
 
   const total = room?.total ?? hotel?.price.total ?? 0;
 
@@ -172,11 +180,20 @@ export default function CheckoutScreen() {
   }
 
   return (
-    <View style={[styles.flex, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.flex, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={insets.top}
+    >
       <View style={styles.header}>
-        <Link href="/" asChild>
+        <Pressable
+          onPress={() => router.replace('/')}
+          accessibilityRole="button"
+          accessibilityLabel="Close checkout"
+          hitSlop={8}
+        >
           <Ionicons name="close" size={26} color={colors.ink} />
-        </Link>
+        </Pressable>
         <Text style={styles.headerTitle}>Confirm your stay</Text>
         <View style={{ width: 26 }} />
       </View>
@@ -319,10 +336,10 @@ export default function CheckoutScreen() {
         />
 
         <Text style={styles.footnote}>
-          By continuing you agree to the hotel's cancellation policy. Prices are in Pakistani rupees and include taxes.
+          By continuing you agree to the hotel’s cancellation policy. Prices are in Pakistani rupees and include taxes.
         </Text>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
