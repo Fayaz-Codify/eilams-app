@@ -3,11 +3,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api, ApiError, type City, type HotelCardData, type SearchMeta, type Stay } from '../src/lib/api';
 import { addDays, date, nightsBetween, today } from '../src/lib/format';
 import { HotelCard } from '../src/components/HotelCard';
 import { Button, Chip, ErrorNotice, Spinner } from '../src/components/ui';
-import { colors, font, radius } from '../src/theme';
+import { colors, font, shadows } from '../src/theme';
 
 const SORTS = [
   { key: 'recommended', label: 'Recommended' },
@@ -22,7 +23,7 @@ const FOCUS_HINTS: Record<string, string> = {
   guests: 'Set the number of guests before choosing a room.',
 };
 
-/** Search and filters designed to remain usable on a small phone screen. */
+/** Search stays as a guest, with destination, stay dates, guests, and sort filters. */
 export default function Search() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -60,12 +61,10 @@ export default function Search() {
 
   const nights = nightsBetween(stay.check_in, stay.check_out);
 
-  // Bootstrap is only used for the destination picker; a temporary bootstrap
-  // failure should not hide results when the hotels endpoint is available.
+  // A bootstrap failure should not hide results if the hotels endpoint works.
   useEffect(() => {
     let cancelled = false;
-    api
-      .bootstrap()
+    api.bootstrap()
       .then((response) => {
         if (!cancelled) setCities(response.cities);
       })
@@ -76,8 +75,7 @@ export default function Search() {
     };
   }, []);
 
-  // Keep the screen in sync when another home shortcut opens Search with a new
-  // destination or stay in the same navigation stack.
+  // Keep the screen in sync when another shortcut opens Search in the same stack.
   useEffect(() => {
     setCity(params.city ?? '');
     setStay((current) => {
@@ -132,13 +130,11 @@ export default function Search() {
 
   const shiftStay = (direction: -1 | 1) => {
     setStay((current) => {
-      // Never move the check-in before today.
       const nextCheckIn =
         direction < 0 && addDays(current.check_in, direction) < today()
           ? current.check_in
           : addDays(current.check_in, direction);
       const currentNights = nightsBetween(current.check_in, current.check_out);
-
       return {
         ...current,
         check_in: nextCheckIn,
@@ -152,131 +148,163 @@ export default function Search() {
   const focusHint = params.focus ? FOCUS_HINTS[params.focus] : undefined;
 
   return (
-    <View style={[styles.flex, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={8}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.ink} />
-        </Pressable>
-        <TextInput
-          value={queryInput}
-          onChangeText={setQueryInput}
-          placeholder="Search hotels, cities…"
-          placeholderTextColor={colors.faint}
-          style={styles.searchInput}
-          returnKeyType="search"
-          onSubmitEditing={() => setQuery(queryInput.trim())}
-          accessibilityLabel="Search hotels and cities"
-        />
-        <Pressable
-          onPress={() => setQuery(queryInput.trim())}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          hitSlop={8}
-        >
-          <Ionicons name="search" size={20} color={colors.brand} />
-        </Pressable>
-      </View>
+    <View style={styles.flex}>
+      <LinearGradient
+        colors={[colors.brandDeep, '#0A4770', colors.ocean]}
+        locations={[0, 0.58, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+      >
+        <View style={styles.headerTop}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+            style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}
+          >
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </Pressable>
+          <View style={styles.headerTitleBlock}>
+            <Text style={styles.headerKicker}>EXPLORE EILAMS</Text>
+            <Text style={styles.headerTitle}>Find your stay</Text>
+          </View>
+          <View style={styles.headerSparkle}>
+            <Ionicons name="sparkles-outline" size={18} color="#D9F1E6" />
+          </View>
+        </View>
+
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={19} color={colors.brand} />
+          <TextInput
+            value={queryInput}
+            onChangeText={setQueryInput}
+            placeholder="Hotel, city or destination"
+            placeholderTextColor={colors.faint}
+            style={styles.searchInput}
+            returnKeyType="search"
+            onSubmitEditing={() => setQuery(queryInput.trim())}
+            accessibilityLabel="Search hotels and cities"
+          />
+          {queryInput ? (
+            <Pressable
+              onPress={() => { setQueryInput(''); setQuery(''); }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={19} color={colors.faint} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => setQuery(queryInput.trim())}
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+            style={styles.searchAction}
+          >
+            <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </LinearGradient>
 
       <View style={styles.filters}>
-        {focusHint ? <Text style={styles.focusHint}>{focusHint}</Text> : null}
+        {focusHint ? (
+          <View style={styles.focusHintBox}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.ocean} />
+            <Text style={styles.focusHint}>{focusHint}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.destinationHeading}>
-          <Text style={styles.filterLabel}>Destination</Text>
-          <Text style={styles.selectedCity} numberOfLines={1}>
-            {selectedCity?.city ?? (city ? city.replace(/-/g, ' ') : 'Anywhere in Pakistan')}
-          </Text>
+          <View>
+            <Text style={styles.filterLabel}>DESTINATION</Text>
+            <Text style={styles.selectedCity} numberOfLines={1}>
+              {selectedCity?.city ?? (city ? city.replace(/-/g, ' ') : 'Anywhere in Pakistan')}
+            </Text>
+          </View>
+          <Ionicons name="location-outline" size={20} color={colors.brand} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cityRow}>
           <Chip label="Anywhere" active={!city} onPress={() => setCity('')} />
           {cities.map((item) => (
-            <Chip
-              key={item.slug}
-              label={item.city}
-              active={city === item.slug}
-              onPress={() => setCity(item.slug)}
-            />
+            <Chip key={item.slug} label={item.city} active={city === item.slug} onPress={() => setCity(item.slug)} />
           ))}
         </ScrollView>
 
-        <View style={styles.datesRow}>
-          <StepButton icon="chevron-back" label="Move dates back" onPress={() => shiftStay(-1)} />
-          <View style={styles.datesText}>
-            <Text style={styles.date}>{date(stay.check_in)}</Text>
-            <Ionicons name="arrow-forward" size={14} color={colors.faint} />
-            <Text style={styles.date}>{date(stay.check_out)}</Text>
+        <View style={styles.stayPanel}>
+          <Text style={styles.stayPanelLabel}>YOUR STAY</Text>
+          <View style={styles.datesRow}>
+            <StepButton icon="chevron-back" label="Move dates back" onPress={() => shiftStay(-1)} />
+            <View style={styles.datesText}>
+              <Text style={styles.date}>{date(stay.check_in)}</Text>
+              <Ionicons name="arrow-forward" size={14} color={colors.faint} />
+              <Text style={styles.date}>{date(stay.check_out)}</Text>
+            </View>
+            <StepButton icon="chevron-forward" label="Move dates forward" onPress={() => shiftStay(1)} />
           </View>
-          <StepButton icon="chevron-forward" label="Move dates forward" onPress={() => shiftStay(1)} />
-        </View>
-
-        <View style={styles.guestRow}>
-          <Stepper
-            label="Nights"
-            value={nights}
-            minimum={1}
-            onChange={(value) =>
-              setStay((current) => ({
-                ...current,
-                check_out: addDays(current.check_in, value),
-                nights: value,
-              }))
-            }
-          />
-          <Stepper
-            label="Adults"
-            value={stay.adults}
-            minimum={1}
-            onChange={(value) => setStay((current) => ({ ...current, adults: value }))}
-          />
-          <Stepper
-            label="Children"
-            value={stay.children}
-            minimum={0}
-            onChange={(value) => setStay((current) => ({ ...current, children: value }))}
-          />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
-          {SORTS.map((option) => (
-            <Chip
-              key={option.key}
-              label={option.label}
-              active={sort === option.key}
-              onPress={() => setSort(option.key)}
+          <View style={styles.stayDivider} />
+          <View style={styles.guestRow}>
+            <Stepper
+              label="Nights"
+              value={nights}
+              minimum={1}
+              onChange={(value) => setStay((current) => ({ ...current, check_out: addDays(current.check_in, value), nights: value }))}
             />
-          ))}
-        </ScrollView>
+            <Stepper
+              label="Adults"
+              value={stay.adults}
+              minimum={1}
+              onChange={(value) => setStay((current) => ({ ...current, adults: value }))}
+            />
+            <Stepper
+              label="Children"
+              value={stay.children}
+              minimum={0}
+              onChange={(value) => setStay((current) => ({ ...current, children: value }))}
+            />
+          </View>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
+      <View style={styles.resultsHeader}>
+        <View style={styles.resultsTitleBlock}>
+          <Text style={styles.resultsTitle}>Available stays</Text>
+          <Text style={styles.resultsSubtitle}>Thoughtful places, picked for your trip</Text>
+        </View>
+        <Ionicons name="options-outline" size={19} color={colors.brand} />
+      </View>
+      <ScrollView style={styles.resultsScroll} contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+          {SORTS.map((option) => (
+            <Chip key={option.key} label={option.label} active={sort === option.key} onPress={() => setSort(option.key)} />
+          ))}
+        </ScrollView>
+
         {error ? (
           <ErrorNotice message={error} onRetry={run} />
         ) : loading ? (
           <Spinner label="Finding available rooms…" />
         ) : results.length === 0 ? (
           <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="search-outline" size={24} color={colors.brand} />
+            </View>
             <Text style={styles.emptyTitle}>No stays free for those dates</Text>
-            <Text style={styles.emptyBody}>
-              Try moving your dates a day either way, or choose another destination.
-            </Text>
+            <Text style={styles.emptyBody}>Try moving your dates a day either way, or choose another destination.</Text>
             <Button title="Widen the dates" variant="secondary" compact onPress={() => shiftStay(1)} />
           </View>
         ) : (
           <>
             <Text style={styles.resultCount}>
-              {meta?.total ?? results.length}{' '}
-              {(meta?.total ?? 0) === 1 ? 'property' : 'properties'} available
+              {meta?.total ?? results.length} {(meta?.total ?? 0) === 1 ? 'property' : 'properties'} available
             </Text>
-            {results.map((hotel) => (
-              <HotelCard
-                key={hotel.id}
-                hotel={hotel}
-                onPress={() =>
-                  router.push({
+            <View style={styles.cardsList}>
+              {results.map((hotel) => (
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  onPress={() => router.push({
                     pathname: '/hotel/[slug]',
                     params: {
                       slug: hotel.slug,
@@ -285,10 +313,10 @@ export default function Search() {
                       adults: String(stay.adults),
                       children: String(stay.children),
                     },
-                  })
-                }
-              />
-            ))}
+                  })}
+                />
+              ))}
+            </View>
           </>
         )}
       </ScrollView>
@@ -360,62 +388,47 @@ function Stepper({
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.subtle },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  searchInput: { ...font.regular, fontSize: 15, color: colors.ink, flex: 1, minHeight: 40 },
-  filters: {
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 10,
-  },
-  focusHint: { ...font.regular, fontSize: 12, color: colors.brand },
-  destinationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  filterLabel: { ...font.medium, fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  selectedCity: { ...font.semibold, fontSize: 13, color: colors.ink, textTransform: 'capitalize', flex: 1, textAlign: 'right' },
-  cityRow: { gap: 6 },
-  datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  datesText: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  date: { ...font.semibold, fontSize: 14, color: colors.brand },
-  stepButton: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guestRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    backgroundColor: colors.sunken,
-    paddingRight: 2,
-  },
-  stepperLabel: { ...font.medium, fontSize: 12, color: colors.muted, paddingLeft: 10, paddingRight: 4 },
-  stepperButton: { width: 28, height: 30, alignItems: 'center', justifyContent: 'center' },
-  stepperValue: { ...font.semibold, fontSize: 14, color: colors.ink, minWidth: 20, textAlign: 'center' },
-  sortRow: { gap: 6 },
-  results: { padding: 16, paddingBottom: 40 },
-  resultCount: { ...font.regular, fontSize: 13, color: colors.muted, marginBottom: 12 },
-  empty: { alignItems: 'center', paddingVertical: 30, gap: 10, paddingHorizontal: 20 },
-  emptyTitle: { ...font.semibold, fontSize: 16, color: colors.ink },
-  emptyBody: { ...font.regular, fontSize: 14, color: colors.muted, textAlign: 'center', lineHeight: 20 },
+  header: { paddingHorizontal: 18, paddingBottom: 32 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 17 },
+  backButton: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.12)' },
+  backPressed: { backgroundColor: 'rgba(255,255,255,0.24)' },
+  headerTitleBlock: { flex: 1, gap: 2 },
+  headerKicker: { ...font.semibold, color: 'rgba(225,242,246,0.72)', fontSize: 9, letterSpacing: 1.15 },
+  headerTitle: { ...font.bold, color: '#FFFFFF', fontSize: 22, letterSpacing: -0.35 },
+  headerSparkle: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
+  searchBox: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, paddingLeft: 14, paddingRight: 6, borderRadius: 17, backgroundColor: '#FFFFFF', ...shadows.card },
+  searchInput: { ...font.regular, fontSize: 14, color: colors.ink, flex: 1, minHeight: 48 },
+  searchAction: { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
+  filters: { marginTop: -18, marginHorizontal: 14, padding: 15, gap: 12, zIndex: 2, backgroundColor: colors.surface, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(255,255,255,0.88)', ...shadows.floating },
+  focusHintBox: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#E9F5F2', borderRadius: 12 },
+  focusHint: { ...font.medium, color: colors.ocean, fontSize: 11, flex: 1 },
+  destinationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  filterLabel: { ...font.semibold, color: colors.muted, fontSize: 9, letterSpacing: 0.9 },
+  selectedCity: { ...font.semibold, color: colors.ink, fontSize: 15, textTransform: 'capitalize', marginTop: 3 },
+  cityRow: { gap: 6, paddingRight: 2 },
+  stayPanel: { padding: 11, borderRadius: 16, backgroundColor: colors.sunken, borderWidth: 1, borderColor: colors.line, gap: 7 },
+  stayPanelLabel: { ...font.semibold, color: colors.muted, fontSize: 9, letterSpacing: 0.8 },
+  datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
+  datesText: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  date: { ...font.semibold, fontSize: 12, color: colors.brand },
+  stepButton: { width: 32, height: 32, borderRadius: 11, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  stayDivider: { height: 1, backgroundColor: colors.line, marginVertical: 1 },
+  guestRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 5 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 0, borderWidth: 1, borderColor: colors.line, borderRadius: 11, backgroundColor: colors.surface, paddingRight: 1 },
+  stepperLabel: { ...font.medium, fontSize: 10, color: colors.muted, paddingLeft: 7, paddingRight: 2 },
+  stepperButton: { width: 24, height: 31, alignItems: 'center', justifyContent: 'center' },
+  stepperValue: { ...font.semibold, fontSize: 12, color: colors.ink, minWidth: 15, textAlign: 'center' },
+  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 19, paddingTop: 17, paddingBottom: 1 },
+  resultsTitleBlock: { gap: 2 },
+  resultsTitle: { ...font.bold, color: colors.ink, fontSize: 19, letterSpacing: -0.25 },
+  resultsSubtitle: { ...font.regular, color: colors.muted, fontSize: 11 },
+  resultsScroll: { flex: 1 },
+  results: { paddingHorizontal: 16, paddingTop: 11, paddingBottom: 36 },
+  sortRow: { gap: 7, paddingBottom: 14, paddingRight: 16 },
+  resultCount: { ...font.medium, fontSize: 12, color: colors.muted, marginBottom: 11 },
+  cardsList: { gap: 13 },
+  empty: { alignItems: 'center', paddingVertical: 28, gap: 10, paddingHorizontal: 22, marginTop: 8, backgroundColor: colors.surface, borderRadius: 22, borderWidth: 1, borderColor: colors.line },
+  emptyIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: '#EAF2F9', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  emptyTitle: { ...font.semibold, fontSize: 16, color: colors.ink, textAlign: 'center' },
+  emptyBody: { ...font.regular, fontSize: 13, color: colors.muted, textAlign: 'center', lineHeight: 19 },
 });

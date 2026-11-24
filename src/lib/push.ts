@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
+import Constants, { AppOwnership } from 'expo-constants';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { api } from './api';
@@ -23,7 +24,9 @@ export function usePushRegistration() {
 
     (async () => {
       try {
-        if (!Device.isDevice) return;
+        // Expo Go is not a supported remote-push target for current SDKs.
+        // Skip unsupported calls instead of logging runtime warnings.
+        if (Constants.appOwnership === AppOwnership.Expo || !Device.isDevice) return;
 
         const settings = await Notifications.getPermissionsAsync();
         const status = settings.granted

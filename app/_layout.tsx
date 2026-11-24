@@ -65,16 +65,17 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerShown: false,
+        presentation: 'card',
         contentStyle: { backgroundColor: colors.subtle },
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="(auth)" options={{ animationTypeForReplace: 'pop' }} />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(auth)" options={{ presentation: 'card', animationTypeForReplace: 'pop' }} />
+      <Stack.Screen name="(tabs)" options={{ presentation: 'card' }} />
       <Stack.Screen name="search" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="hotel/[slug]" />
+      <Stack.Screen name="hotel/[slug]" options={{ presentation: 'card' }} />
       <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="booking/[id]" />
+      <Stack.Screen name="booking/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="payments/[reference]" options={{ presentation: 'modal' }} />
     </Stack>
   );
