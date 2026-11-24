@@ -30,6 +30,13 @@ the API when a payment lands, a booking is confirmed, or a booking is cancelled.
 Remote push notifications require a native development or store build; Expo Go
 is useful for checking the screens and booking flow.
 
+### Guest access
+
+Guests can open Explore, Search, and hotel details without an account. Selecting
+a room or opening Trips, Profile, a booking, or a payment prompts sign-in. After
+a successful sign-in or sign-up, the app returns to the protected screen and
+keeps the selected room, dates, and guest count for checkout.
+
 ## Getting started
 
 ```sh

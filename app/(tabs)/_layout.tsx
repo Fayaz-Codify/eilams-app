@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font } from '../../src/theme';
 import { usePushRegistration } from '../../src/lib/push';
+import { useAuth } from '../../src/lib/auth';
 
 const TABS = [
   { name: 'index', label: 'Explore', icon: 'search-outline', active: 'search' },
@@ -11,7 +12,9 @@ const TABS = [
 ] as const;
 
 export default function TabsLayout() {
+  const { user } = useAuth();
   usePushRegistration();
+  const visibleTabs = TABS.filter((tab) => user || tab.name === 'index');
 
   return (
     <Tabs
@@ -28,7 +31,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: { ...font.medium, fontSize: 11 },
       }}
     >
-      {TABS.map((tab) => (
+      {visibleTabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
