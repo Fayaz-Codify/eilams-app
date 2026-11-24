@@ -1,73 +1,113 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from 'expo-router';
-import { colors, font, radius } from '../theme';
-import { date, plural } from '../lib/format';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, font, shadows } from '../theme';
+import { plural, shortDate } from '../lib/format';
 import type { Stay } from '../lib/api';
+
+type Focus = 'destination' | 'dates' | 'guests';
 
 type Props = {
   stay: Stay;
-  onStayChange: (next: Stay) => void;
   onSubmit: () => void;
   cityLabel?: string;
+  citySlug?: string;
 };
 
-/**
- * The search box that opens the app. Tapping a segment opens a sheet rather
- * than typing, because on a phone "pick from the dates we actually have" beats
- * a calendar with 400 disabled days.
- */
-export function SearchCard({ stay, onStayChange, onSubmit, cityLabel }: Props) {
-  const navigation = useNavigation<any>();
+/** Floating search panel inspired by modern airline / travel booking apps. */
+export function SearchCard({ stay, onSubmit, cityLabel, citySlug }: Props) {
+  const router = useRouter();
 
-  const rows = [
-    {
-      key: 'destination',
-      label: 'Destination',
-      value: cityLabel && cityLabel !== '' ? cityLabel : 'Anywhere in Pakistan',
-      onPress: () => navigation.navigate('search', { focus: 'city' }),
-    },
-    {
-      key: 'dates',
-      label: 'Dates',
-      value: `${date(stay.check_in)} → ${date(stay.check_out)}`,
-      onPress: () => navigation.navigate('search', { focus: 'dates' }),
-    },
-    {
-      key: 'guests',
-      label: 'Guests',
-      value: `${plural(stay.adults, 'adult')}, ${plural(stay.children, 'child', 'children')}`,
-      onPress: () => navigation.navigate('search', { focus: 'guests' }),
-    },
-  ];
+  const openSearch = (focus: Focus) => {
+    router.push({
+      pathname: '/search',
+      params: {
+        focus,
+        check_in: stay.check_in,
+        check_out: stay.check_out,
+        adults: String(stay.adults),
+        children: String(stay.children),
+        ...(citySlug ? { city: citySlug } : {}),
+      },
+    });
+  };
+
+  const guestSummary = `${plural(stay.adults, 'adult')}, ${plural(stay.children, 'child', 'children')}`;
 
   return (
     <View style={styles.card}>
-      {rows.map((row, index) => (
-        <React.Fragment key={row.key}>
-          {index > 0 ? <View style={styles.rule} /> : null}
-          <Pressable
-            onPress={row.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={`${row.label}: ${row.value}`}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <Text style={styles.label}>{row.label}</Text>
-            <Text style={styles.value} numberOfLines={1}>
-              {row.value}
-            </Text>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        </React.Fragment>
-      ))}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeading}>
+          <Text style={styles.eyebrow}>PLAN YOUR ESCAPE</Text>
+          <Text style={styles.title}>Find a place to stay</Text>
+        </View>
+        <View style={styles.sparkle}>
+          <Ionicons name="sparkles-outline" size={18} color={colors.brand} />
+        </View>
+      </View>
+
+      <Pressable
+        onPress={() => openSearch('destination')}
+        accessibilityRole="button"
+        accessibilityLabel={`Destination: ${cityLabel || 'Anywhere in Pakistan'}`}
+        style={({ pressed }) => [styles.destination, pressed && styles.pressed]}
+      >
+        <View style={styles.iconBox}>
+          <Ionicons name="location-outline" size={19} color={colors.brand} />
+        </View>
+        <View style={styles.destinationText}>
+          <Text style={styles.fieldLabel}>DESTINATION</Text>
+          <Text style={styles.fieldValue} numberOfLines={1}>
+            {cityLabel || 'Anywhere in Pakistan'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+      </Pressable>
+
+      <View style={styles.detailsRow}>
+        <Pressable
+          onPress={() => openSearch('dates')}
+          accessibilityRole="button"
+          accessibilityLabel={`Stay dates: ${shortDate(stay.check_in)} to ${shortDate(stay.check_out)}`}
+          style={({ pressed }) => [styles.detailCell, pressed && styles.pressed]}
+        >
+          <View style={styles.detailIcon}>
+            <Ionicons name="calendar-outline" size={17} color={colors.brand} />
+          </View>
+          <Text style={styles.fieldLabel}>CHECK-IN · CHECK-OUT</Text>
+          <Text style={styles.detailValue} numberOfLines={1}>
+            {shortDate(stay.check_in)} — {shortDate(stay.check_out)}
+          </Text>
+        </Pressable>
+
+        <View style={styles.verticalRule} />
+
+        <Pressable
+          onPress={() => openSearch('guests')}
+          accessibilityRole="button"
+          accessibilityLabel={`Guests: ${guestSummary}`}
+          style={({ pressed }) => [styles.detailCell, styles.guestCell, pressed && styles.pressed]}
+        >
+          <View style={styles.detailIcon}>
+            <Ionicons name="people-outline" size={17} color={colors.brand} />
+          </View>
+          <Text style={styles.fieldLabel}>GUESTS</Text>
+          <Text style={styles.detailValue} numberOfLines={1}>
+            {guestSummary}
+          </Text>
+        </Pressable>
+      </View>
 
       <Pressable
         onPress={onSubmit}
         accessibilityRole="button"
         accessibilityLabel="Search stays"
-        style={({ pressed }) => [styles.submit, pressed && styles.pressedSubmit]}
+        style={({ pressed }) => [styles.submit, pressed && styles.submitPressed]}
       >
-        <Text style={styles.submitText}>Find stays</Text>
+        <Ionicons name="search" size={19} color="#FFFFFF" />
+        <Text style={styles.submitText}>Search stays</Text>
+        <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
       </Pressable>
     </View>
   );
@@ -76,23 +116,55 @@ export function SearchCard({ stay, onStayChange, onSubmit, cityLabel }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: colors.lineStrong,
-    overflow: 'hidden',
+    borderColor: 'rgba(255,255,255,0.8)',
+    padding: 18,
+    gap: 12,
+    ...shadows.floating,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  pressed: { backgroundColor: colors.subtle },
-  rule: { height: 1, backgroundColor: colors.line, marginHorizontal: 16 },
-  label: { ...font.medium, fontSize: 11, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, width: 92 },
-  value: { ...font.medium, fontSize: 15, color: colors.ink, flex: 1 },
-  chevron: { fontSize: 20, color: colors.faint },
-  submit: {
-    backgroundColor: colors.brand,
-    paddingVertical: 14,
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  cardHeading: { gap: 3 },
+  eyebrow: { ...font.semibold, color: colors.ocean, fontSize: 10, letterSpacing: 1.3 },
+  title: { ...font.bold, color: colors.ink, fontSize: 19, letterSpacing: -0.35 },
+  sparkle: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  destination: {
+    minHeight: 68,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: 12,
+    paddingHorizontal: 12,
+    backgroundColor: colors.sunken,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 17,
   },
-  pressedSubmit: { backgroundColor: colors.brandHover },
-  submitText: { ...font.semibold, fontSize: 16, color: '#FFFFFF' },
+  iconBox: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#E8F1FA', alignItems: 'center', justifyContent: 'center' },
+  destinationText: { flex: 1, gap: 3 },
+  fieldLabel: { ...font.semibold, color: colors.muted, fontSize: 9, letterSpacing: 0.75 },
+  fieldValue: { ...font.semibold, color: colors.ink, fontSize: 15 },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: 3,
+  },
+  detailCell: { flex: 1, minWidth: 0, gap: 5, paddingHorizontal: 3, paddingVertical: 5 },
+  guestCell: { paddingLeft: 13 },
+  detailIcon: { width: 28, height: 28, borderRadius: 10, backgroundColor: '#EEF4FA', alignItems: 'center', justifyContent: 'center', marginBottom: 1 },
+  detailValue: { ...font.semibold, color: colors.ink, fontSize: 13 },
+  verticalRule: { width: 1, backgroundColor: colors.line, marginVertical: 5 },
+  pressed: { opacity: 0.75 },
+  submit: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: 16,
+    backgroundColor: colors.brand,
+    marginTop: 1,
+    paddingHorizontal: 16,
+  },
+  submitPressed: { backgroundColor: colors.brandHover, transform: [{ scale: 0.99 }] },
+  submitText: { ...font.semibold, color: '#FFFFFF', fontSize: 15, flex: 1 },
 });

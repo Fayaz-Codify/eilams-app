@@ -1,26 +1,36 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api, ApiError, type HotelDetail, type Room, type Stay } from '../../src/lib/api';
 import { addDays, date, money, nightsBetween, today } from '../../src/lib/format';
 import { Button, ErrorNotice, Pill, Spinner, Stars } from '../../src/components/ui';
-import { colors, font, radius } from '../../src/theme';
+import { colors, font, radius, shadows } from '../../src/theme';
 
 export default function HotelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { slug } = useLocalSearchParams<{ slug: string }>();
-  const params = useLocalSearchParams<{ check_in?: string; check_out?: string; adults?: string }>();
+  const params = useLocalSearchParams<{
+    slug: string;
+    check_in?: string;
+    check_out?: string;
+    adults?: string;
+    children?: string;
+  }>();
+  const { slug } = params;
 
   const [hotel, setHotel] = useState<HotelDetail | null>(null);
   const [stay, setStay] = useState<Stay>({
     check_in: params.check_in ?? addDays(today(), 1),
     check_out: params.check_out ?? addDays(today(), 2),
-    nights: 1,
+    nights: nightsBetween(
+      params.check_in ?? addDays(today(), 1),
+      params.check_out ?? addDays(today(), 2),
+    ),
     adults: Number(params.adults ?? 2),
-    children: 0,
+    children: Number(params.children ?? 0),
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +45,7 @@ export default function HotelScreen() {
         check_in: stay.check_in,
         check_out: stay.check_out,
         adults: stay.adults,
+        children: stay.children,
       });
       setHotel(response.data);
       setStay((current) => ({ ...current, ...response.meta.stay }));
@@ -43,12 +54,12 @@ export default function HotelScreen() {
     } finally {
       setLoading(false);
     }
-  }, [slug, stay.check_in, stay.check_out, stay.adults]);
+  }, [slug, stay.check_in, stay.check_out, stay.adults, stay.children]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, stay.check_in, stay.check_out, stay.adults]);
+  }, [slug, stay.check_in, stay.check_out, stay.adults, stay.children]);
 
   const shiftStay = (direction: -1 | 1) => {
     setStay((current) => {
@@ -101,14 +112,12 @@ export default function HotelScreen() {
                 accessibilityLabel="Next photo"
                 style={styles.heroTap}
               />
-              <Pressable
-                onPress={() => router.back()}
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-                style={styles.backButton}
-              >
-                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-              </Pressable>
+              <LinearGradient
+                colors={['rgba(8,28,56,0.34)', 'transparent', 'rgba(8,28,56,0.15)']}
+                locations={[0, 0.48, 1]}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
               {photos.length > 1 ? (
                 <View style={styles.photoBadge}>
                   <Text style={styles.photoBadgeText}>
@@ -119,14 +128,30 @@ export default function HotelScreen() {
             </>
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]}>
-              <Text style={styles.heroPlaceholderText}>{hotel.name.slice(0, 1)}</Text>
+              <Ionicons name="bed-outline" size={54} color="#8295A9" />
             </View>
           )}
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </Pressable>
+          <View pointerEvents="none" style={styles.heroCaption}>
+            <View style={styles.heroLocation}>
+              <Ionicons name="location" size={12} color="#FFFFFF" />
+              <Text style={styles.heroLocationText} numberOfLines={1}>{hotel.city}</Text>
+            </View>
+            {hotel.stars > 0 ? <Stars count={hotel.stars} size={12} /> : null}
+          </View>
         </View>
 
         <View style={styles.body}>
           <View style={styles.headingRow}>
             <View style={styles.headingText}>
+              <Text style={styles.propertyKicker}>YOUR NEXT GETAWAY</Text>
               <Text style={styles.name}>{hotel.name}</Text>
               <Text style={styles.city}>
                 {hotel.city} · {hotel.property_type}
@@ -335,97 +360,60 @@ function pluralNight(nights: number): string {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.subtle },
   scroll: { paddingBottom: 40 },
-  hero: { height: 260, backgroundColor: colors.subtle },
+  hero: { height: 286, backgroundColor: '#E5EDF4', position: 'relative' },
   heroImage: { width: '100%', height: '100%' },
-  heroPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  heroPlaceholderText: { ...font.bold, fontSize: 64, color: colors.lineStrong },
+  heroPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5EDF4' },
   heroTap: { ...StyleSheet.absoluteFill },
   backButton: {
-    position: 'absolute',
-    top: 12,
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(23, 33, 43, 0.62)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', top: 12, left: 16, width: 42, height: 42, borderRadius: 15,
+    backgroundColor: 'rgba(8,28,56,0.66)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  photoBadge: {
-    position: 'absolute',
-    right: 16,
-    bottom: 12,
-    backgroundColor: 'rgba(23, 33, 43, 0.62)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-  },
+  heroCaption: { position: 'absolute', left: 17, right: 17, bottom: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroLocation: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(8,28,56,0.64)', borderRadius: radius.pill },
+  heroLocationText: { ...font.medium, color: '#FFFFFF', fontSize: 11, textTransform: 'capitalize' },
+  photoBadge: { position: 'absolute', right: 17, top: 13, backgroundColor: 'rgba(8,28,56,0.68)', paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.pill },
   photoBadgeText: { ...font.medium, fontSize: 11, color: '#FFFFFF' },
-  body: { padding: 18, gap: 8 },
+  body: { marginTop: -20, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 35, gap: 10, backgroundColor: colors.subtle, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  headingText: { flex: 1, gap: 2 },
-  name: { ...font.bold, fontSize: 24, color: colors.ink, letterSpacing: -0.4 },
-  city: { ...font.regular, fontSize: 14, color: colors.muted, textTransform: 'capitalize' },
-  ratingBox: {
-    backgroundColor: colors.accentSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
+  headingText: { flex: 1, gap: 3 },
+  propertyKicker: { ...font.semibold, color: colors.ocean, fontSize: 9, letterSpacing: 1.1 },
+  name: { ...font.bold, fontSize: 24, color: colors.ink, letterSpacing: -0.5 },
+  city: { ...font.regular, fontSize: 13, color: colors.muted, textTransform: 'capitalize' },
+  ratingBox: { backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1, borderRadius: 15, paddingHorizontal: 10, paddingVertical: 7, alignItems: 'center', ...shadows.card },
   ratingValue: { ...font.bold, fontSize: 15, color: colors.ink },
   ratingCount: { ...font.regular, fontSize: 10, color: colors.muted },
-  description: { ...font.regular, fontSize: 14, color: colors.body, lineHeight: 21 },
-  policies: { gap: 8, marginTop: 8, padding: 14, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line },
-  policyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  policyLabel: { ...font.regular, fontSize: 12, color: colors.muted, width: 70 },
+  description: { ...font.regular, fontSize: 14, color: colors.body, lineHeight: 22, marginTop: 2 },
+  policies: { gap: 11, marginTop: 6, padding: 15, backgroundColor: colors.surface, borderRadius: 19, borderWidth: 1, borderColor: colors.line, ...shadows.card },
+  policyRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  policyLabel: { ...font.medium, fontSize: 12, color: colors.muted, width: 72 },
   policyValue: { ...font.medium, fontSize: 13, color: colors.ink, flex: 1 },
-  sectionTitle: { ...font.semibold, fontSize: 17, color: colors.ink, marginTop: 14, marginBottom: 6 },
-  dateBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    backgroundColor: colors.sunken,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  dateStep: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { ...font.bold, fontSize: 18, color: colors.ink, marginTop: 15, marginBottom: 3, letterSpacing: -0.2 },
+  dateBar: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.surface, paddingHorizontal: 5, paddingVertical: 7, marginBottom: 6, ...shadows.card },
+  dateStep: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' },
   dateBarText: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' },
-  dateBarDate: { ...font.semibold, fontSize: 13, color: colors.ink },
-  dateBarMeta: { ...font.regular, fontSize: 12, color: colors.muted },
+  dateBarDate: { ...font.semibold, fontSize: 12, color: colors.brand },
+  dateBarMeta: { ...font.regular, fontSize: 11, color: colors.muted },
   sectionHint: { ...font.regular, fontSize: 12, color: colors.muted, marginBottom: 10 },
-  amenities: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  soldOut: { padding: 18, borderRadius: radius.md, backgroundColor: colors.warningSoft, gap: 4 },
+  amenities: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  soldOut: { padding: 17, borderRadius: 18, backgroundColor: colors.warningSoft, borderWidth: 1, borderColor: '#F2E3BE', gap: 4 },
   soldOutTitle: { ...font.semibold, fontSize: 14, color: colors.warning },
   soldOutBody: { ...font.regular, fontSize: 13, color: colors.muted },
-  room: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    marginBottom: 10,
-  },
-  roomImage: { width: 76, height: 76, borderRadius: radius.md, backgroundColor: colors.subtle },
+  room: { flexDirection: 'row', gap: 12, padding: 12, backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.line, marginBottom: 10, ...shadows.card },
+  roomImage: { width: 82, height: 82, borderRadius: 14, backgroundColor: colors.subtle },
   roomPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  roomBody: { flex: 1, gap: 5 },
+  roomBody: { flex: 1, gap: 6 },
   roomHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   roomName: { ...font.semibold, fontSize: 15, color: colors.ink, flex: 1 },
-  roomPrice: { ...font.semibold, fontSize: 14, color: colors.brand },
+  roomPrice: { ...font.bold, fontSize: 14, color: colors.brand },
   roomMeta: { ...font.regular, fontSize: 12, color: colors.muted },
   roomTotal: { ...font.medium, fontSize: 13, color: colors.ink },
-  roomLeft: { ...font.regular, fontSize: 11, color: colors.success },
+  roomLeft: { ...font.medium, fontSize: 11, color: colors.success },
   roomUnavailable: { ...font.regular, fontSize: 12, color: colors.danger },
-  policyBox: { marginTop: 6, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface, borderLeftWidth: 3, borderLeftColor: colors.brand },
-  policyTitle: { ...font.semibold, fontSize: 13, color: colors.ink, marginBottom: 3 },
-  policyBody: { ...font.regular, fontSize: 13, color: colors.body, lineHeight: 19 },
-  review: { padding: 12, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, marginBottom: 8, gap: 4 },
-  reviewText: { ...font.regular, fontSize: 13, color: colors.body, lineHeight: 19 },
-  reviewMeta: { ...font.regular, fontSize: 11, color: colors.faint },
+  policyBox: { marginTop: 6, padding: 15, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  policyTitle: { ...font.semibold, fontSize: 14, color: colors.ink, marginBottom: 5 },
+  policyBody: { ...font.regular, fontSize: 13, color: colors.body, lineHeight: 20 },
+  review: { padding: 14, backgroundColor: colors.surface, borderRadius: 17, borderWidth: 1, borderColor: colors.line, marginBottom: 9, gap: 6 },
+  reviewText: { ...font.regular, fontSize: 13, color: colors.body, lineHeight: 20 },
+  reviewMeta: { ...font.medium, fontSize: 11, color: colors.faint },
 });

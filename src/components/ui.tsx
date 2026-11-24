@@ -6,7 +6,6 @@ import {
   Text,
   View,
   type StyleProp,
-  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { colors, font, radius } from '../theme';

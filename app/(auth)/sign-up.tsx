@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/lib/auth';
 import { ApiError } from '../../src/lib/api';
@@ -17,7 +17,7 @@ import { Button, Field } from '../../src/components/ui';
 import { colors, font, radius } from '../../src/theme';
 
 export default function SignUp() {
-  const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
 
@@ -50,7 +50,6 @@ export default function SignUp() {
         password_confirmation: form.confirm,
         phone: form.phone.trim() || undefined,
       });
-      router.replace('/');
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.message);
@@ -162,7 +161,10 @@ export default function SignUp() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account?</Text>
-            <Link href="/sign-in" asChild>
+            <Link
+              href={returnTo ? { pathname: '/sign-in', params: { returnTo } } : '/sign-in'}
+              asChild
+            >
               <Pressable accessibilityRole="link">
                 <Text style={styles.footerLink}>Sign in</Text>
               </Pressable>

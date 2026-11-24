@@ -16,12 +16,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      # The pinned React version sits one patch behind what react-dom asks for,
-      # so npm needs --legacy-peer-deps to resolve the tree at all.
+      # The Expo / React Native peer tree currently needs npm's legacy peer resolver.
       - run: npm ci --legacy-peer-deps
 
-      - run: npx tsc --noEmit
+      - run: npm run check
 
-      # A production bundle catches broken imports and bad route config that a
-      # type check cannot see.
+      # Bundle all three targets to catch native-only and web-only import issues.
+      - run: npx expo export --platform android --output-dir /tmp/eilams-android
+      - run: npx expo export --platform ios --output-dir /tmp/eilams-ios
       - run: npx expo export --platform web --output-dir dist

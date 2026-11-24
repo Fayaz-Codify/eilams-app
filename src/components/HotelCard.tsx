@@ -1,75 +1,103 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, font, radius } from '../theme';
-import { money, plural } from '../lib/format';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { money } from '../lib/format';
 import type { HotelCardData } from '../lib/api';
-import { Stars } from './ui';
+import { colors, font, radius, shadows } from '../theme';
 
 type Props = {
   hotel: HotelCardData;
-  onPress?: () => void;
-  /** Full-width on a results screen, or square-ish on a horizontal rail. */
+  onPress: () => void;
   compact?: boolean;
-  testID?: string;
 };
 
-/**
- * The property card. Deliberately the same information the website leads with:
- * photo, name, city, rating, and the real price for the dates the guest asked
- * about — never a "from" price pulled off the room type.
- */
-export function HotelCard({ hotel, onPress, compact, testID }: Props) {
+export function HotelCard({ hotel, onPress, compact = false }: Props) {
+  const showRating = hotel.rating !== null && !Number.isNaN(Number(hotel.rating));
+  const price = hotel.price?.available && hotel.price.per_night > 0
+    ? money(hotel.price.per_night)
+    : null;
+  const propertyLabel = hotel.stars > 0
+    ? `${hotel.stars}-star ${hotel.property_type || 'stay'}`
+    : (hotel.property_type || 'Stay');
+
   return (
     <Pressable
-      testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${hotel.name}, ${hotel.city}, ${money(hotel.price.total)} for ${plural(hotel.price.nights, 'night')}`}
-      style={({ pressed }) => [styles.card, compact && styles.compact, pressed && styles.pressed]}
+      accessibilityLabel={`View ${hotel.name}${hotel.city ? ` in ${hotel.city}` : ''}`}
+      style={({ pressed }) => [styles.card, compact && styles.compactCard, pressed && styles.pressed]}
     >
-      <View style={styles.imageWrap}>
+      <View style={[styles.imageWrap, compact && styles.compactImageWrap]}>
         {hotel.image ? (
-          <Image source={{ uri: hotel.image }} style={styles.image} accessibilityIgnoresInvertColors />
+          <Image source={{ uri: hotel.image }} style={styles.image} resizeMode="cover" />
         ) : (
-          <View style={[styles.image, styles.placeholder]}>
-            <Text style={styles.placeholderText}>{hotel.name.slice(0, 1)}</Text>
+          <View style={[styles.image, styles.imagePlaceholder]}>
+            <Ionicons name="bed-outline" size={34} color="#8295A9" />
           </View>
         )}
-        <View style={styles.typeBadge}>
-          <Text style={styles.typeBadgeText}>{hotel.property_type}</Text>
+        <LinearGradient
+          colors={['rgba(8,28,56,0.38)', 'rgba(8,28,56,0.02)', 'rgba(8,28,56,0.18)']}
+          locations={[0, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <View style={styles.destinationTag}>
+          <Ionicons name="location" size={11} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.destinationText}>{hotel.city || 'Pakistan'}</Text>
         </View>
+        <View style={styles.favorite} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Ionicons name="heart-outline" size={18} color={colors.ink} />
+        </View>
+        {hotel.price?.available ? (
+          <View style={styles.availabilityTag}>
+            <View style={styles.availabilityDot} />
+            <Text style={styles.availabilityText}>Available</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.body}>
-        <View style={styles.headingRow}>
-          <Text style={styles.name} numberOfLines={compact ? 1 : 2}>
-            {hotel.name}
-          </Text>
-          {hotel.rating !== null ? (
+        <View style={styles.titleRow}>
+          <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
+          {showRating ? (
             <View style={styles.rating}>
-              <Text style={styles.ratingStar}>★</Text>
-              <Text style={styles.ratingValue}>{hotel.rating.toFixed(1)}</Text>
+              <Ionicons name="star" size={11} color="#D99A26" />
+              <Text style={styles.ratingText}>{Number(hotel.rating).toFixed(1)}</Text>
             </View>
           ) : null}
         </View>
-
-        <Text style={styles.city} numberOfLines={1}>
-          {hotel.city}
+        <Text style={styles.meta} numberOfLines={1}>
+          {propertyLabel}{hotel.city ? `  ·  ${hotel.city}` : ''}
         </Text>
 
-        <Stars count={hotel.stars} />
+        {hotel.amenities.length > 0 ? (
+          <View style={styles.perksRow}>
+            {hotel.amenities.slice(0, 2).map((amenity, index) => (
+              <View style={styles.perk} key={`${amenity}-${index}`}>
+                {index === 0 ? <Ionicons name="checkmark-circle" size={13} color={colors.ocean} /> : null}
+                <Text style={styles.perkText} numberOfLines={1}>{amenity}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>{money(hotel.price.per_night)}</Text>
-          <Text style={styles.priceUnit}>/ night</Text>
+        <View style={styles.footer}>
+          <View style={styles.reviewSummary}>
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.muted} />
+            <Text style={styles.reviewText}>
+              {hotel.reviews_count > 0 ? `${hotel.reviews_count} reviews` : 'Guest favourite'}
+            </Text>
+          </View>
+          <View style={styles.priceWrap}>
+            {price ? (
+              <>
+                <Text style={styles.price}>{price}</Text>
+                <Text style={styles.perNight}> / night</Text>
+              </>
+            ) : <Text style={styles.priceOnRequest}>See availability</Text>}
+          </View>
         </View>
-        {hotel.price.available && hotel.price.room_type ? (
-          <Text style={styles.priceDetail} numberOfLines={1}>
-            {hotel.price.room_type} · {money(hotel.price.total)} total
-          </Text>
-        ) : (
-          <Text style={styles.priceDetail}>No rooms free on these dates</Text>
-        )}
       </View>
     </Pressable>
   );
@@ -82,41 +110,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     overflow: 'hidden',
-    marginBottom: 14,
+    ...shadows.card,
   },
-  compact: { width: 240, marginBottom: 0 },
-  pressed: { opacity: 0.97 },
-  imageWrap: { position: 'relative' },
-  image: { width: '100%', height: 150, backgroundColor: colors.subtle },
-  placeholder: { alignItems: 'center', justifyContent: 'center' },
-  placeholderText: { ...font.bold, fontSize: 40, color: colors.lineStrong },
-  typeBadge: {
-    position: 'absolute',
-    left: 10,
-    bottom: 10,
-    backgroundColor: 'rgba(23, 33, 43, 0.72)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
+  compactCard: { width: 286, marginRight: 14 },
+  imageWrap: { height: 194, backgroundColor: '#E5EDF4', position: 'relative' },
+  compactImageWrap: { height: 170 },
+  image: { width: '100%', height: '100%' },
+  imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5EDF4' },
+  destinationTag: {
+    position: 'absolute', left: 13, top: 13, maxWidth: '62%',
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 9, paddingVertical: 6, borderRadius: radius.pill,
+    backgroundColor: 'rgba(8,28,56,0.58)',
   },
-  typeBadgeText: { ...font.medium, fontSize: 10, color: '#FFFFFF', textTransform: 'capitalize' },
-  body: { padding: 12, gap: 3 },
-  headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  name: { ...font.semibold, fontSize: 16, color: colors.ink, flex: 1, lineHeight: 21 },
+  destinationText: { ...font.medium, color: '#FFFFFF', fontSize: 11 },
+  favorite: {
+    position: 'absolute', top: 11, right: 11, width: 36, height: 36,
+    borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.96)',
+    alignItems: 'center', justifyContent: 'center', ...shadows.card,
+  },
+  availabilityTag: {
+    position: 'absolute', left: 13, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: radius.pill,
+    paddingHorizontal: 9, paddingVertical: 6,
+  },
+  availabilityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  availabilityText: { ...font.semibold, fontSize: 10, color: colors.success },
+  body: { paddingHorizontal: 15, paddingTop: 13, paddingBottom: 14, gap: 5 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name: { flex: 1, ...font.semibold, fontSize: 16, color: colors.ink, letterSpacing: -0.2 },
   rating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FFF7E6', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4,
   },
-  ratingStar: { color: colors.sun, fontSize: 11 },
-  ratingValue: { ...font.semibold, fontSize: 12, color: colors.ink },
-  city: { ...font.regular, fontSize: 13, color: colors.muted },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
-  price: { ...font.bold, fontSize: 17, color: colors.brand },
-  priceUnit: { ...font.regular, fontSize: 12, color: colors.muted },
-  priceDetail: { ...font.regular, fontSize: 12, color: colors.faint },
+  ratingText: { ...font.semibold, fontSize: 11, color: colors.ink },
+  meta: { ...font.regular, fontSize: 12, color: colors.muted, textTransform: 'capitalize' },
+  perksRow: { flexDirection: 'row', gap: 12, marginTop: 3, minHeight: 20 },
+  perk: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '48%' },
+  perkText: { ...font.medium, color: colors.body, fontSize: 11 },
+  footer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line,
+  },
+  reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 },
+  reviewText: { ...font.medium, color: colors.muted, fontSize: 11 },
+  priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
+  price: { ...font.bold, color: colors.brand, fontSize: 16 },
+  perNight: { ...font.regular, color: colors.muted, fontSize: 10 },
+  priceOnRequest: { ...font.semibold, color: colors.brand, fontSize: 12 },
+  pressed: { opacity: 0.93, transform: [{ scale: 0.995 }] },
 });

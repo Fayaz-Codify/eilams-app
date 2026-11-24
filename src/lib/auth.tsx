@@ -22,6 +22,14 @@ type Session = {
 const Context = createContext<Session | null>(null);
 
 const DEVICE_NAME = `${Device.manufacturer ?? ''} ${Device.modelName ?? ''}`.trim() || 'Eilams app';
+const OFFLINE_USER: User = {
+  id: 0,
+  name: 'Traveler',
+  email: '',
+  phone: null,
+  email_verified: false,
+  member_since: null,
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -31,20 +39,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const token = await tokenStorage.get();
+      try {
+        const token = await tokenStorage.get();
 
-      if (token) {
-        try {
-          const me = await api.me();
-          if (!cancelled) setUser(me.data);
-        } catch (error) {
-          // An expired or revoked token is not an error worth showing: clear it
-          // and let the guest land on sign-in.
-          if (error instanceof ApiError && error.status === 401) await tokenStorage.set(null);
+        if (token) {
+          const cachedUser = await tokenStorage.getUser<User>();
+          if (!cancelled) {
+            // A saved token means this is a signed-in session. Show cached
+            // content immediately instead of blocking the app on startup I/O.
+            setUser(cachedUser ?? OFFLINE_USER);
+            setReady(true);
+          }
+
+          try {
+            const me = await api.me();
+            // Ignore a late startup response if the guest signed out or changed
+            // accounts while the request was in flight.
+            if ((await tokenStorage.get()) === token) {
+              if (!cancelled) setUser(me.data);
+              await tokenStorage.setUser(me.data);
+            }
+          } catch (error) {
+            // Keep the encrypted profile cache if the phone is offline, but
+            // discard both values when the server rejects the same token.
+            if (
+              error instanceof ApiError &&
+              error.status === 401 &&
+              (await tokenStorage.get()) === token
+            ) {
+              await tokenStorage.set(null);
+              await tokenStorage.setUser(null);
+              if (!cancelled) setUser(null);
+            }
+          }
         }
+      } finally {
+        if (!cancelled) setReady(true);
       }
-
-      if (!cancelled) setReady(true);
     })();
 
     return () => {
@@ -55,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const session = await api.login({ email, password, device_name: DEVICE_NAME });
     await tokenStorage.set(session.token);
+    await tokenStorage.setUser(session.user);
     setUser(session.user);
   }, []);
 
@@ -68,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }) => {
       const session = await api.register({ ...input, device_name: DEVICE_NAME });
       await tokenStorage.set(session.token);
+      await tokenStorage.setUser(session.user);
       setUser(session.user);
     },
     [],
@@ -80,12 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // The token may already be gone; clearing it locally is what matters.
     }
     await tokenStorage.set(null);
+    await tokenStorage.setUser(null);
     setUser(null);
   }, []);
 
   const refresh = useCallback(async () => {
     try {
       const me = await api.me();
+      await tokenStorage.setUser(me.data);
       setUser(me.data);
     } catch {
       // Keep whatever we have; the caller decides whether that is fatal.

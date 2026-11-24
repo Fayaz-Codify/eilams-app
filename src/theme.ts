@@ -1,17 +1,16 @@
-/**
- * The Eilams palette, lifted straight from the website's `--sn-*` custom
- * properties so the app and the site read as one product.
- */
+/** Eilams travel palette: deep indigo, ocean teal, and clean white surfaces. */
 export const colors = {
-  brand: '#164E63',
-  brandHover: '#0E7490',
-  ink: '#17212B',
-  body: '#164E63',
-  muted: '#64748B',
-  faint: '#94A3B8',
-  accent: '#84CC16',
-  accentSoft: '#D9F99D',
-  sun: '#F0A81E',
+  brand: '#123E73',
+  brandHover: '#0B5A83',
+  brandDeep: '#081C38',
+  ocean: '#087F91',
+  ink: '#142236',
+  body: '#344A62',
+  muted: '#63758A',
+  faint: '#97A6B7',
+  accent: '#A8CE4B',
+  accentSoft: '#EFF7D9',
+  sun: '#EAAE46',
   danger: '#A8263C',
   dangerSoft: '#FDF0EF',
   success: '#137333',
@@ -19,10 +18,10 @@ export const colors = {
   warning: '#B45309',
   warningSoft: '#FEF6E7',
   surface: '#FFFFFF',
-  subtle: '#F7FAFA',
-  sunken: '#F8FAFB',
-  line: '#E7F4F5',
-  lineStrong: '#D3E9EA',
+  subtle: '#F3F6FA',
+  sunken: '#F8FAFC',
+  line: '#E8EDF3',
+  lineStrong: '#D7E0EA',
 } as const;
 
 export const spacing = {
@@ -36,9 +35,9 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 18,
+  sm: 10,
+  md: 14,
+  lg: 22,
   pill: 999,
 } as const;
 
@@ -52,11 +51,18 @@ export const card = {
 
 export const shadows = {
   card: {
-    shadowColor: colors.ink,
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowColor: '#102B49',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  floating: {
+    shadowColor: '#071C38',
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
 } as const;
 

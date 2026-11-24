@@ -30,6 +30,7 @@ export default function PaymentResult() {
   const [phase, setPhase] = useState<Phase>('checking');
   const attempts = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkRef = useRef<() => Promise<void>>(async () => undefined);
 
   const check = useCallback(async () => {
     attempts.current += 1;
@@ -59,11 +60,14 @@ export default function PaymentResult() {
       return;
     }
 
-    timer.current = setTimeout(check, INTERVAL_MS);
+    timer.current = setTimeout(() => {
+      void checkRef.current();
+    }, INTERVAL_MS);
   }, [reference]);
 
   useEffect(() => {
-    check();
+    checkRef.current = check;
+    void check();
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
