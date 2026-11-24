@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs } from 'expo-router/js-tabs';
+import { Tabs } from 'expo-router/tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font } from '../../src/theme';
 import { usePushRegistration } from '../../src/lib/push';
